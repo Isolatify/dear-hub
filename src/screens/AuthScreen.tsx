@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { Logo } from '@/components/Logo';
 
 export function AuthScreen() {
-  const { signIn, signUp, signInWithGoogle } = useAuth();
+  const { signIn, signUp, signInWithGoogle, session, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -13,18 +13,35 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!session) return;
+    if (profile?.role === 'teacher') {
+      navigate('/teacher/dashboard', { replace: true });
+    } else {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [session, profile, navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     if (mode === 'signin') {
       const { error } = await signIn(email, password);
-      if (error) toast(error, 'error');
-      else toast('Welcome back!', 'success');
+      if (error) {
+        toast(error, 'error');
+        setLoading(false);
+      } else {
+        toast('Welcome back!', 'success');
+      }
     } else {
       const { error } = await signUp(email, password);
-      if (error) toast(error, 'error');
-      else toast('Account created! You can now sign in.', 'success');
+      if (error) {
+        toast(error, 'error');
+      } else {
+        toast('Account created! You can now sign in.', 'success');
+        setMode('signin');
+      }
     }
     setLoading(false);
   };
