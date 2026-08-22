@@ -12,12 +12,20 @@ export type DearStatus = 'active' | 'archived';
 export interface Profile {
   id: string;
   email: string;
+  username: string | null;
   first_name: string;
   last_name: string;
   role: UserRole;
   avatar_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ChatPermission {
+  id: string;
+  student_a: string;
+  student_b: string;
+  allowed: boolean;
 }
 
 export interface Dear {

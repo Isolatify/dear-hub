@@ -25,6 +25,7 @@ interface AuthContextValue {
   completeOnboarding: (
     firstName: string,
     lastName: string,
+    username: string,
     avatarUrl?: string | null
   ) => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
@@ -99,9 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    const redirectTo = window.location.hostname === 'localhost'
+      ? window.location.origin
+      : 'https://dear-hub.vercel.app';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: { redirectTo },
     });
     return { error: error?.message ?? null };
   };
@@ -115,6 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeOnboarding = async (
     firstName: string,
     lastName: string,
+    username: string,
     avatarUrl?: string | null
   ) => {
     if (!user) return { error: 'Not authenticated' };
@@ -124,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: user.email,
       first_name: firstName,
       last_name: lastName,
+      username: username.toLowerCase(),
       role: 'student',
       avatar_url: avatarUrl ?? null,
     });

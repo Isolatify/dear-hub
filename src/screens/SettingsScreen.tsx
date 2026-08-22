@@ -36,6 +36,7 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
   const [savingProfile, setSavingProfile] = useState(false);
   const [firstName, setFirstName] = useState(profile?.first_name ?? '');
   const [lastName, setLastName] = useState(profile?.last_name ?? '');
+  const [username, setUsername] = useState(profile?.username ?? '');
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,11 +65,11 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
     setSavingProfile(true);
     const { error } = await supabase
       .from('profiles')
-      .update({ first_name: firstName, last_name: lastName, updated_at: new Date().toISOString() })
+      .update({ first_name: firstName, last_name: lastName, username: username.toLowerCase(), updated_at: new Date().toISOString() })
       .eq('id', profile.id);
     await refreshProfile();
     setSavingProfile(false);
-    if (error) toast(error.message, 'error');
+    if (error) toast(error.message.includes('username') ? 'That username is already taken.' : error.message, 'error');
     else toast('Profile saved!', 'success');
   };
 
@@ -106,6 +107,21 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
             <p className="text-xs text-app-muted">{profile?.email}</p>
           </div>
         </div>
+
+        {!isTeacher && (
+          <div className="mt-3">
+            <label className="text-sm font-medium text-app-secondary mb-1.5 block">Username</label>
+            <input
+              type="text"
+              value={username}
+              minLength={3}
+              maxLength={20}
+              pattern="[a-zA-Z0-9_]+"
+              onChange={(e) => setUsername(e.target.value)}
+              className="glass-input w-full rounded-xl px-4 py-2.5"
+            />
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>

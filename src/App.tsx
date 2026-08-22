@@ -22,6 +22,9 @@ import { ManageStudents } from '@/screens/ManageStudents';
 import { LiveActivity } from '@/screens/LiveActivity';
 import { GradeScreen } from '@/screens/GradeScreen';
 import { PeekScreen } from '@/screens/PeekScreen';
+import { TeacherDearsScreen } from '@/screens/TeacherDearsScreen';
+import { TeacherSubmissionsScreen } from '@/screens/TeacherSubmissionsScreen';
+import { TeacherAnalyticsScreen } from '@/screens/TeacherAnalyticsScreen';
 
 function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -74,6 +77,9 @@ function AppRoutes() {
       {/* Teacher routes (require teacher profile) */}
       <Route path="/teacher/dashboard" element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} />
       <Route path="/teacher/create" element={<TeacherRoute><CreateDear /></TeacherRoute>} />
+      <Route path="/teacher/dears" element={<TeacherRoute><TeacherDearsScreen /></TeacherRoute>} />
+      <Route path="/teacher/submissions" element={<TeacherRoute><TeacherSubmissionsScreen /></TeacherRoute>} />
+      <Route path="/teacher/analytics" element={<TeacherRoute><TeacherAnalyticsScreen /></TeacherRoute>} />
       <Route path="/teacher/students" element={<TeacherRoute><ManageStudents /></TeacherRoute>} />
       <Route path="/teacher/live" element={<TeacherRoute><LiveActivity /></TeacherRoute>} />
       <Route path="/teacher/grade/:dearId" element={<TeacherRoute><GradeScreen /></TeacherRoute>} />

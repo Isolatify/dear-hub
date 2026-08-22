@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 interface PdfViewerProps {
   url: string;
@@ -15,7 +16,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
 
   useEffect(() => {
     let cancelled = false;
-    let pdfDoc: any = null;
+    let pdfDoc: PDFDocumentProxy | null = null;
 
     const render = async () => {
       setLoading(true);
@@ -26,14 +27,15 @@ export function PdfViewer({ url }: PdfViewerProps) {
         const pdfjs = await import('pdfjs-dist');
         pdfjs.GlobalWorkerOptions.workerSrc = await import('pdfjs-dist/build/pdf.worker.min.mjs?url').then((m) => m.default);
 
-        const loadingTask = pdfjs.getDocument({
+        const loadingParams = {
           url,
           onProgress: ({ loaded, total }: { loaded: number; total: number }) => {
             if (total > 0) {
               setLoadProgress(Math.min(100, Math.round((loaded / total) * 100)));
             }
           },
-        });
+        } as Parameters<typeof pdfjs.getDocument>[0];
+        const loadingTask = pdfjs.getDocument(loadingParams);
         pdfDoc = await loadingTask.promise;
         if (cancelled) return;
 
@@ -62,7 +64,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
           canvas.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
 
           container.appendChild(canvas);
-          await page.render({ canvasContext: ctx, viewport }).promise;
+          await page.render({ canvas, canvasContext: ctx, viewport }).promise;
           setCurrentPage(i);
         }
 
@@ -81,7 +83,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
 
     return () => {
       cancelled = true;
-      if (pdfDoc) pdfDoc.destroy?.();
+      if (pdfDoc) pdfDoc.cleanup();
     };
   }, [url, zoom, rotation]);
 

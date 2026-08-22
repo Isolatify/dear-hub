@@ -38,14 +38,24 @@ export function ChatScreen() {
         setSelectedContact(data[0] as Profile);
       }
     } else {
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'teacher')
-        .limit(1);
-      setContacts((data ?? []) as Profile[]);
-      if (data && data.length > 0) {
-        setSelectedContact(data[0] as Profile);
+      const [{ data: teacherData }, { data: studentData }, { data: permissionData }] = await Promise.all([
+        supabase.from('profiles').select('*').eq('role', 'teacher').limit(1),
+        supabase.from('profiles').select('*').eq('role', 'student').order('first_name'),
+        supabase.from('chat_permissions').select('student_a, student_b').eq('allowed', true),
+      ]);
+      const allowedIds = new Set<string>();
+      (permissionData ?? []).forEach((permission) => {
+        if (permission.student_a === profile?.id) allowedIds.add(permission.student_b);
+        if (permission.student_b === profile?.id) allowedIds.add(permission.student_a);
+      });
+      const data = [...(teacherData ?? []), ...(studentData ?? []).filter((student) => allowedIds.has(student.id))];
+      setContacts(data as Profile[]);
+      if (recipientId) {
+        setSelectedContact((data as Profile[]).find((student) => student.id === recipientId) ?? null);
+      }
+      setLoading(false);
+      if (teacherData && teacherData.length > 0 && !recipientId) {
+        setSelectedContact(teacherData[0] as Profile);
       }
     }
     setLoading(false);
@@ -94,9 +104,9 @@ export function ChatScreen() {
     setMessages((data ?? []) as Message[]);
 
     // Mark received messages as read
-    const unread = (data ?? []).filter((m: any) => m.recipient_id === profile.id && !m.read_at);
+    const unread = (data ?? []).filter((m) => m.recipient_id === profile.id && !m.read_at);
     if (unread.length > 0) {
-      await Promise.all(unread.map((m: any) =>
+      await Promise.all(unread.map((m) =>
         supabase.from('messages').update({ read_at: new Date().toISOString() }).eq('id', m.id)
       ));
     }

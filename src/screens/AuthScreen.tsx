@@ -15,6 +15,7 @@ export function AuthScreen() {
 
   useEffect(() => {
     if (!session) return;
+    if (!profile) return;
     if (profile?.role === 'teacher') {
       navigate('/teacher/dashboard', { replace: true });
     } else {

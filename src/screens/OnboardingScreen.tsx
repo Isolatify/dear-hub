@@ -9,6 +9,7 @@ export function OnboardingScreen() {
   const { toast } = useToast();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [username, setUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -38,12 +39,16 @@ export function OnboardingScreen() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!firstName.trim() || !lastName.trim()) {
-      toast('Please enter your first and last name.', 'warning');
+    if (!firstName.trim() || !lastName.trim() || !username.trim()) {
+      toast('Please enter your first name, last name, and username.', 'warning');
+      return;
+    }
+    if (!/^[a-zA-Z0-9_]{3,20}$/.test(username.trim())) {
+      toast('Username must be 3-20 characters using letters, numbers, or underscores.', 'warning');
       return;
     }
     setLoading(true);
-    const { error } = await completeOnboarding(firstName.trim(), lastName.trim(), avatarUrl);
+    const { error } = await completeOnboarding(firstName.trim(), lastName.trim(), username.trim(), avatarUrl);
     if (error) toast(error, 'error');
     else toast('Profile created! Welcome to DEAR Hub.', 'success');
     setLoading(false);
@@ -103,6 +108,21 @@ export function OnboardingScreen() {
               className="glass-input w-full rounded-xl px-4 py-3 text-slate-800"
               placeholder="Last name"
             />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-600 mb-1.5 block">Username</label>
+            <input
+              type="text"
+              required
+              minLength={3}
+              maxLength={20}
+              pattern="[a-zA-Z0-9_]+"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="glass-input w-full rounded-xl px-4 py-3 text-slate-800"
+              placeholder="your_username"
+            />
+            <p className="text-xs text-slate-400 mt-1">3-20 letters, numbers, or underscores</p>
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary w-full flex items-center justify-center gap-2">

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { GlassCard, Badge, EmptyState, Avatar, Spinner } from '@/components/ui';
+import { GlassCard, EmptyState, Avatar, Spinner } from '@/components/ui';
 import { formatRelative } from '@/lib/utils';
 import type { Profile, ActivityLog, DearSubmission, Dear } from '@/types';
 
@@ -21,6 +21,9 @@ export function ManageStudents() {
   const [newFirst, setNewFirst] = useState('');
   const [newLast, setNewLast] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [permissions, setPermissions] = useState<Array<{ student_a: string; student_b: string; allowed: boolean }>>([]);
+  const [permissionA, setPermissionA] = useState('');
+  const [permissionB, setPermissionB] = useState('');
 
   useEffect(() => {
     load();
@@ -52,6 +55,11 @@ export function ManageStudents() {
       .select('*, dear:dears(*)')
       .order('updated_at', { ascending: false });
 
+    const { data: permissionData } = await supabase
+      .from('chat_permissions')
+      .select('student_a, student_b, allowed');
+    setPermissions((permissionData ?? []) as Array<{ student_a: string; student_b: string; allowed: boolean }>);
+
     const logMap = new Map<string, ActivityLog[]>();
     (logData ?? []).forEach((l) => {
       const arr = logMap.get(l.student_id) ?? [];
@@ -60,7 +68,7 @@ export function ManageStudents() {
     });
 
     const subMap = new Map<string, (DearSubmission & { dear: Dear })[]>();
-    (subData ?? []).forEach((s: any) => {
+    (subData ?? []).forEach((s) => {
       const arr = subMap.get(s.student_id) ?? [];
       arr.push(s);
       subMap.set(s.student_id, arr);
@@ -75,6 +83,21 @@ export function ManageStudents() {
 
     setStudents(combined);
     setLoading(false);
+  };
+
+  const updatePermission = async () => {
+    if (!permissionA || !permissionB || permissionA === permissionB) return;
+    const existing = permissions.find((permission) =>
+      (permission.student_a === permissionA && permission.student_b === permissionB)
+      || (permission.student_a === permissionB && permission.student_b === permissionA)
+    );
+    const [studentA, studentB] = [permissionA, permissionB].sort();
+    const { data } = await supabase.from('chat_permissions').upsert({
+      student_a: studentA,
+      student_b: studentB,
+      allowed: !existing?.allowed,
+    }, { onConflict: 'student_a,student_b' }).select('student_a, student_b, allowed').maybeSingle();
+    if (data) setPermissions((current) => [...current.filter((permission) => !(permission.student_a === data.student_a && permission.student_b === data.student_b)), data]);
   };
 
   const handleEdit = (student: Profile) => {
@@ -163,6 +186,29 @@ export function ManageStudents() {
           </form>
         </GlassCard>
       )}
+
+      <GlassCard className="p-6 mb-6">
+        <h2 className="font-semibold text-app-primary mb-1">Student chat permissions</h2>
+        <p className="text-sm text-app-muted mb-4">Allow or block student-to-student conversations. Teacher messages remain separate.</p>
+        <div className="flex flex-col md:flex-row gap-3">
+          <select value={permissionA} onChange={(e) => setPermissionA(e.target.value)} className="glass-input rounded-xl px-3 py-2.5 flex-1">
+            <option value="">Choose first student</option>
+            {students.map((student) => <option key={student.id} value={student.id}>{student.first_name} {student.last_name}</option>)}
+          </select>
+          <select value={permissionB} onChange={(e) => setPermissionB(e.target.value)} className="glass-input rounded-xl px-3 py-2.5 flex-1">
+            <option value="">Choose second student</option>
+            {students.map((student) => <option key={student.id} value={student.id}>{student.first_name} {student.last_name}</option>)}
+          </select>
+          <button onClick={updatePermission} className="btn-primary">Toggle access</button>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {permissions.filter((permission) => permission.allowed).map((permission) => {
+            const first = students.find((student) => student.id === permission.student_a);
+            const second = students.find((student) => student.id === permission.student_b);
+            return first && second ? <span key={`${permission.student_a}-${permission.student_b}`} className="text-xs glass-input rounded-full px-3 py-1.5">@{first.username ?? first.first_name} + @{second.username ?? second.first_name}</span> : null;
+          })}
+        </div>
+      </GlassCard>
 
       {students.length === 0 ? (
         <EmptyState
