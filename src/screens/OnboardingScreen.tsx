@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import { supabase } from '@/lib/supabase';
@@ -7,6 +8,7 @@ import { Spinner } from '@/components/ui';
 export function OnboardingScreen() {
   const { user, completeOnboarding } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [username, setUsername] = useState('');
@@ -50,7 +52,10 @@ export function OnboardingScreen() {
     setLoading(true);
     const { error } = await completeOnboarding(firstName.trim(), lastName.trim(), username.trim(), avatarUrl);
     if (error) toast(error, 'error');
-    else toast('Profile created! Welcome to DEAR Hub.', 'success');
+    else {
+      toast('Profile created! Welcome to DEAR Hub.', 'success');
+      navigate('/dashboard', { replace: true });
+    }
     setLoading(false);
   };
 

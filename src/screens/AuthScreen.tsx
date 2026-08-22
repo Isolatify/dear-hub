@@ -5,7 +5,7 @@ import { useToast } from '@/context/ToastContext';
 import { Logo } from '@/components/Logo';
 
 export function AuthScreen() {
-  const { signIn, signUp, signInWithGoogle, session, profile } = useAuth();
+  const { signIn, signUp, signInWithGoogle, session, profile, loading: authLoading, needsOnboarding } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
@@ -21,8 +21,8 @@ export function AuthScreen() {
   };
 
   useEffect(() => {
-    if (!session) return;
-    if (!profile) {
+    if (!session || authLoading) return;
+    if (needsOnboarding || !profile) {
       navigate('/onboarding', { replace: true });
       return;
     }
@@ -31,7 +31,7 @@ export function AuthScreen() {
     } else {
       navigate('/dashboard', { replace: true });
     }
-  }, [session, profile, navigate]);
+  }, [session, profile, authLoading, needsOnboarding, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
