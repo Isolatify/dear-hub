@@ -13,6 +13,13 @@ export function AuthScreen() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const getAuthErrorMessage = (error: string) => {
+    if (error.toLowerCase().includes('error sending confirmation email')) {
+      return 'Supabase could not send the confirmation email. Please configure an SMTP provider in Supabase Authentication settings.';
+    }
+    return error;
+  };
+
   useEffect(() => {
     if (!session) return;
     if (!profile) {
@@ -33,7 +40,7 @@ export function AuthScreen() {
     if (mode === 'signin') {
       const { error } = await signIn(email, password);
       if (error) {
-        toast(error, 'error');
+        toast(getAuthErrorMessage(error), 'error');
         setLoading(false);
       } else {
         toast('Welcome back!', 'success');
@@ -41,7 +48,7 @@ export function AuthScreen() {
     } else {
       const { error } = await signUp(email, password);
       if (error) {
-        toast(error, 'error');
+        toast(getAuthErrorMessage(error), 'error');
       } else {
         navigate(`/confirm-email?email=${encodeURIComponent(email)}`);
       }
