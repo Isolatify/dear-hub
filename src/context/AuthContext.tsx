@@ -20,6 +20,7 @@ interface AuthContextValue {
     email: string,
     password: string
   ) => Promise<{ error: string | null; user: User | null }>;
+  resendConfirmation: (email: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   completeOnboarding: (
@@ -95,8 +96,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signUp = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const emailRedirectTo = window.location.hostname === 'localhost'
+      ? `${window.location.origin}/onboarding`
+      : 'https://dear-hub.vercel.app/onboarding';
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo },
+    });
     return { error: error?.message ?? null, user: data.user };
+  };
+
+  const resendConfirmation = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    return { error: error?.message ?? null };
   };
 
   const signInWithGoogle = async () => {
@@ -154,6 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         needsOnboarding,
         signIn,
         signUp,
+        resendConfirmation,
         signInWithGoogle,
         signOut,
         completeOnboarding,

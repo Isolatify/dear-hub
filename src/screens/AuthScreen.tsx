@@ -15,7 +15,10 @@ export function AuthScreen() {
 
   useEffect(() => {
     if (!session) return;
-    if (!profile) return;
+    if (!profile) {
+      navigate('/onboarding', { replace: true });
+      return;
+    }
     if (profile?.role === 'teacher') {
       navigate('/teacher/dashboard', { replace: true });
     } else {
@@ -40,8 +43,7 @@ export function AuthScreen() {
       if (error) {
         toast(error, 'error');
       } else {
-        toast('Account created! You can now sign in.', 'success');
-        setMode('signin');
+        navigate(`/confirm-email?email=${encodeURIComponent(email)}`);
       }
     }
     setLoading(false);

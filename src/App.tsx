@@ -9,6 +9,7 @@ import { Spinner } from '@/components/ui';
 
 import { AuthScreen } from '@/screens/AuthScreen';
 import { OnboardingScreen } from '@/screens/OnboardingScreen';
+import { ConfirmEmailScreen } from '@/screens/ConfirmEmailScreen';
 import { LandingPage } from '@/screens/LandingPage';
 import { TeacherLinkScreen } from '@/screens/TeacherLinkScreen';
 import { StudentDashboard } from '@/screens/StudentDashboard';
@@ -108,6 +109,8 @@ function AppRoutes() {
 
       {/* Auth route */}
       <Route path="/auth" element={<AuthScreen />} />
+      <Route path="/confirm-email" element={<ConfirmEmailScreen />} />
+      <Route path="/onboarding" element={<ProtectedRoute><OnboardingScreen /></ProtectedRoute>} />
 
       {/* Landing page */}
       <Route path="/" element={<LandingPage />} />
