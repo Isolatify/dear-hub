@@ -34,8 +34,10 @@ export function ChatScreen() {
         .eq('role', 'student')
         .order('first_name');
       setContacts((data ?? []) as Profile[]);
+      if (data && data.length > 0 && !recipientId) {
+        setSelectedContact(data[0] as Profile);
+      }
     } else {
-      // Students can only chat with the teacher
       const { data } = await supabase
         .from('profiles')
         .select('*')
@@ -148,30 +150,28 @@ export function ChatScreen() {
 
   return (
     <div className="flex h-screen p-3 lg:p-4">
-      {/* Contact list (teacher only) */}
-      {isTeacher && (
-        <div className="w-64 flex-shrink-0 overflow-auto mr-3 hidden lg:block">
-          <GlassCard className="p-2">
-            <p className="text-xs font-medium text-slate-400 px-3 py-2">STUDENTS</p>
-            {contacts.length === 0 ? (
-              <p className="text-sm text-slate-400 px-3 py-4">No students yet.</p>
-            ) : (
-              contacts.map((contact) => (
-                <button
-                  key={contact.id}
-                  onClick={() => { setSelectedContact(contact); navigate(`/teacher/messages/${contact.id}`); }}
-                  className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition ${
-                    selectedContact?.id === contact.id ? 'glass text-[var(--primary-color)]' : 'hover:bg-white/30 text-slate-600'
-                  }`}
-                >
-                  <Avatar url={contact.avatar_url} name={`${contact.first_name} ${contact.last_name}`} size={32} />
-                  <span className="text-sm font-medium truncate">{contact.first_name} {contact.last_name}</span>
-                </button>
-              ))
-            )}
-          </GlassCard>
-        </div>
-      )}
+      {/* Contact list (teacher sees students, student sees teacher) */}
+      <div className="w-64 flex-shrink-0 overflow-auto mr-3 hidden lg:block">
+        <GlassCard className="p-2">
+          <p className="text-xs font-medium text-app-muted px-3 py-2">{isTeacher ? 'STUDENTS' : 'TEACHER'}</p>
+          {contacts.length === 0 ? (
+            <p className="text-sm text-app-muted px-3 py-4">{isTeacher ? 'No students yet.' : 'No teacher available.'}</p>
+          ) : (
+            contacts.map((contact) => (
+              <button
+                key={contact.id}
+                onClick={() => { setSelectedContact(contact); navigate(isTeacher ? `/teacher/messages/${contact.id}` : '/messages'); }}
+                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition ${
+                  selectedContact?.id === contact.id ? 'glass text-[var(--primary-color)]' : 'hover:bg-white/30 text-app-secondary'
+                }`}
+              >
+                <Avatar url={contact.avatar_url} name={`${contact.first_name} ${contact.last_name}`} size={32} />
+                <span className="text-sm font-medium truncate">{contact.first_name} {contact.last_name}</span>
+              </button>
+            ))
+          )}
+        </GlassCard>
+      </div>
 
       {/* Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -278,8 +278,8 @@ export function ChatScreen() {
         ) : (
           <EmptyState
             icon={<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>}
-            title="Select a student to chat"
-            subtitle="Choose someone from the list to start messaging."
+            title={isTeacher ? "Select a student to chat" : "No teacher available"}
+            subtitle={isTeacher ? "Choose someone from the list to start messaging." : "Your teacher hasn't signed up yet."}
           />
         )}
       </div>

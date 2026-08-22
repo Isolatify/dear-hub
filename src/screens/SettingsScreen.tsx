@@ -15,6 +15,10 @@ const COLOR_PRESETS = [
   { name: 'Rose', primary: '#ec4899', accent: '#f43f5e' },
   { name: 'Forest', primary: '#16a34a', accent: '#65a30d' },
   { name: 'Slate', primary: '#475569', accent: '#0ea5e9' },
+  { name: 'Fire', primary: '#ef4444', accent: '#f59e0b' },
+  { name: 'Midnight', primary: '#1e293b', accent: '#6366f1' },
+  { name: 'Mint', primary: '#34d399', accent: '#22d3ee' },
+  { name: 'Lavender', primary: '#a78bfa', accent: '#f0abfc' },
 ];
 
 const LAYOUTS: { key: ThemeConfig['layout']; label: string; desc: string }[] = [
@@ -208,10 +212,10 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
           </div>
           <button
             onClick={() => handleThemeChange({ animations: !theme.animations })}
-            className={`w-12 h-7 rounded-full transition relative ${theme.animations ? 'gradient-bg' : 'bg-slate-300'}`}
+            className={`w-12 h-7 rounded-full transition relative shrink-0 ${theme.animations ? 'gradient-bg' : 'bg-slate-300 dark:bg-slate-600'}`}
           >
             <span
-              className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${theme.animations ? 'translate-x-6' : 'translate-x-1'}`}
+              className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${theme.animations ? 'translate-x-5' : 'translate-x-0'}`}
             />
           </button>
         </div>
@@ -220,7 +224,7 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
       {/* Theme colors */}
       <GlassCard className="p-6 mb-4 animate-slide-up">
         <h2 className="text-lg font-semibold text-app-primary mb-4">Color Theme</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mb-4">
           {COLOR_PRESETS.map((preset) => (
             <button
               key={preset.name}
