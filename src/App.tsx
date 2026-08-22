@@ -19,7 +19,6 @@ import { SettingsScreen } from '@/screens/SettingsScreen';
 import { TeacherDashboard } from '@/screens/TeacherDashboard';
 import { CreateDear } from '@/screens/CreateDear';
 import { ManageStudents } from '@/screens/ManageStudents';
-import { DearsScreen } from '@/screens/DearsScreen';
 import { LiveActivity } from '@/screens/LiveActivity';
 import { GradeScreen } from '@/screens/GradeScreen';
 import { PeekScreen } from '@/screens/PeekScreen';
@@ -76,7 +75,6 @@ function AppRoutes() {
       <Route path="/teacher/dashboard" element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} />
       <Route path="/teacher/create" element={<TeacherRoute><CreateDear /></TeacherRoute>} />
       <Route path="/teacher/students" element={<TeacherRoute><ManageStudents /></TeacherRoute>} />
-      <Route path="/teacher/dears" element={<TeacherRoute><DearsScreen /></TeacherRoute>} />
       <Route path="/teacher/live" element={<TeacherRoute><LiveActivity /></TeacherRoute>} />
       <Route path="/teacher/grade/:dearId" element={<TeacherRoute><GradeScreen /></TeacherRoute>} />
       <Route path="/teacher/peek/:studentId" element={<TeacherRoute><PeekScreen /></TeacherRoute>} />
