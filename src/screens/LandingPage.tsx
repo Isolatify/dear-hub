@@ -178,7 +178,7 @@ function getDailyQuote() {
 
 export function LandingPage() {
   const navigate = useNavigate();
-  const { session, profile } = useAuth();
+  const { session, profile, loading } = useAuth();
   const [scrolled, setScrolled] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [isolatifyPopup, setIsolatifyPopup] = useState(false);
@@ -193,6 +193,11 @@ export function LandingPage() {
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    if (loading || !session) return;
+    navigate(profile ? (profile.role === 'teacher' ? '/teacher/dashboard' : '/dashboard') : '/onboarding', { replace: true });
+  }, [loading, session, profile, navigate]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -242,6 +247,9 @@ export function LandingPage() {
             </button>
             <button onClick={() => scrollToSection('faq')} className="text-sm font-medium text-app-secondary hover:text-app-primary transition">
               FAQ
+            </button>
+            <button onClick={() => navigate('/feedback')} className="text-sm font-medium text-app-secondary hover:text-app-primary transition">
+              Feedback
             </button>
             <a
               href="https://github.com/Isolatify/dear-hub"

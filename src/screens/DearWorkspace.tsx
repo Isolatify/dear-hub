@@ -22,6 +22,7 @@ export function DearWorkspace() {
   const [submitting, setSubmitting] = useState(false);
   const [teacherPeeking, setTeacherPeeking] = useState(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const workspaceRef = useRef<HTMLDivElement>(null);
 
   const loadDear = useCallback(async () => {
     if (!dearId || !profile) return;
@@ -83,9 +84,10 @@ export function DearWorkspace() {
         schema: 'public',
         table: 'dear_submissions',
         filter: `dear_id=eq.${dearId}`,
-      }, (payload: any) => {
-        if (payload.new?.student_id === profile.id) {
-          setSubmission(payload.new as DearSubmission);
+      }, (payload) => {
+        const nextSubmission = payload.new as Partial<DearSubmission>;
+        if (nextSubmission.student_id === profile.id) {
+          setSubmission(nextSubmission as DearSubmission);
         }
       })
       .on('broadcast', { event: 'teacher-peek' }, () => {
@@ -237,9 +239,13 @@ export function DearWorkspace() {
       </GlassCard>
 
       {/* Split view */}
-      <div className="flex-1 flex gap-3 min-h-0">
+      <div ref={workspaceRef} className="flex-1 flex flex-col lg:flex-row gap-3 min-h-0 overflow-auto" onPointerMove={(event) => {
+        if (event.buttons !== 1 || !workspaceRef.current || window.innerWidth < 1024) return;
+        const bounds = workspaceRef.current.getBoundingClientRect();
+        setSplitRatio(Math.max(25, Math.min(75, ((event.clientX - bounds.left) / bounds.width) * 100)));
+      }}>
         {/* PDF side */}
-        <div style={{ width: `${splitRatio}%` }} className="flex flex-col min-w-0">
+        <div style={{ width: `${splitRatio}%` }} className="workspace-pane flex flex-col min-w-0">
           <div className="glass rounded-xl px-3 py-2 mb-2 flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>
             <span className="text-sm font-medium text-slate-600">Reading Material</span>
@@ -250,7 +256,7 @@ export function DearWorkspace() {
         </div>
 
         {/* Drag handle */}
-        <div className="flex items-center">
+        <div className="hidden lg:flex items-center">
           <div
             className="w-1 h-32 rounded-full bg-slate-200/50 cursor-col-resize hover:bg-[var(--primary-color)] transition"
             title="Drag to resize"
@@ -258,7 +264,7 @@ export function DearWorkspace() {
         </div>
 
         {/* Word processor side */}
-        <div style={{ width: `${100 - splitRatio}%` }} className="flex flex-col min-w-0">
+        <div style={{ width: `${100 - splitRatio}%` }} className="workspace-pane flex flex-col min-w-0">
           <div className="glass rounded-xl px-3 py-2 mb-2 flex items-center gap-2">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-color)" strokeWidth="2"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
             <span className="text-sm font-medium text-slate-600">Your Work</span>

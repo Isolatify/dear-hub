@@ -7,7 +7,7 @@ export type SubmissionStatus =
   | 'approved'
   | 'failed';
 
-export type DearStatus = 'active' | 'archived';
+export type DearStatus = 'draft' | 'active' | 'archived';
 
 export interface Profile {
   id: string;
@@ -120,7 +120,7 @@ export interface ThemeConfig {
   layout: 'default' | 'compact' | 'spacious' | 'grid';
   animations: boolean;
   glassIntensity: 'subtle' | 'medium' | 'strong';
-  fontFamily: 'poppins' | 'sfpro' | 'inter';
+  fontFamily: 'poppins' | 'sfpro' | 'inter' | 'roboto' | 'montserrat' | 'raleway' | 'nunito' | 'lora' | 'playfair' | 'sourceSans' | 'dmSans' | 'spaceGrotesk' | 'manrope';
 }
 
 export const DEFAULT_THEME: ThemeConfig = {

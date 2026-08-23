@@ -159,7 +159,7 @@ export function ChatScreen() {
   }
 
   return (
-    <div className="flex h-screen p-3 lg:p-4">
+    <div className="chat-screen flex h-[calc(100vh-1rem)] min-h-[520px] flex-col p-3 lg:h-screen lg:flex-row lg:p-4">
       {/* Contact list (teacher sees students, student sees teacher) */}
       <div className="w-64 flex-shrink-0 overflow-auto mr-3 hidden lg:block">
         <GlassCard className="p-2">
@@ -181,6 +181,19 @@ export function ChatScreen() {
             ))
           )}
         </GlassCard>
+      </div>
+
+      <div className="chat-mobile-contacts flex gap-2 overflow-x-auto pb-2 lg:hidden">
+        {contacts.map((contact) => (
+          <button
+            key={contact.id}
+            onClick={() => { setSelectedContact(contact); navigate(isTeacher ? `/teacher/messages/${contact.id}` : '/messages'); }}
+            className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 ${selectedContact?.id === contact.id ? 'glass text-[var(--primary-color)]' : 'glass-input text-app-secondary'}`}
+          >
+            <Avatar url={contact.avatar_url} name={`${contact.first_name} ${contact.last_name}`} size={28} />
+            <span className="max-w-28 truncate text-sm">{contact.username ? `@${contact.username}` : contact.first_name}</span>
+          </button>
+        ))}
       </div>
 
       {/* Chat area */}
@@ -215,7 +228,7 @@ export function ChatScreen() {
             </GlassCard>
 
             {/* Messages */}
-            <div className="flex-1 overflow-auto glass rounded-xl p-4 space-y-2 mb-3 bg-white/40">
+            <div className="chat-messages flex-1 overflow-auto glass rounded-xl p-4 space-y-2 mb-3 bg-white/40">
               {messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
                   <p className="text-sm text-slate-400">No messages yet. Say hello!</p>
@@ -272,7 +285,7 @@ export function ChatScreen() {
             </div>
 
             {/* Input */}
-            <form onSubmit={handleSend} className="flex gap-2">
+            <form onSubmit={handleSend} className="flex gap-2 shrink-0">
               <input
                 type="text"
                 value={newMessage}

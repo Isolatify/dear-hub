@@ -26,6 +26,7 @@ import { PeekScreen } from '@/screens/PeekScreen';
 import { TeacherDearsScreen } from '@/screens/TeacherDearsScreen';
 import { TeacherSubmissionsScreen } from '@/screens/TeacherSubmissionsScreen';
 import { TeacherAnalyticsScreen } from '@/screens/TeacherAnalyticsScreen';
+import { FeedbackScreen } from '@/screens/FeedbackScreen';
 
 function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -43,6 +44,12 @@ function TeacherLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 min-w-0">{children}</main>
     </div>
   );
+}
+
+function FeedbackRoute() {
+  const { profile } = useAuth();
+  const navigation = profile?.role === 'teacher' ? <TeacherNav /> : <StudentNav />;
+  return <div className="flex min-h-screen">{navigation}<main className="flex-1 min-w-0"><FeedbackScreen /></main></div>;
 }
 
 function TeacherRoute({ children }: { children: React.ReactNode }) {
@@ -106,6 +113,7 @@ function AppRoutes() {
       <Route path="/settings" element={
         <ProtectedRoute><StudentLayout><SettingsScreen isTeacher={false} /></StudentLayout></ProtectedRoute>
       } />
+      <Route path="/feedback" element={<ProtectedRoute><FeedbackRoute /></ProtectedRoute>} />
 
       {/* Auth route */}
       <Route path="/auth" element={<AuthScreen />} />

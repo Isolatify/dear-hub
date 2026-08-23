@@ -1,5 +1,8 @@
 -- DEAR Hub social and profile features
 
+alter table public.dears drop constraint if exists dears_status_check;
+alter table public.dears add constraint dears_status_check check (status in ('draft', 'active', 'archived'));
+
 alter table public.profiles add column if not exists username text;
 
 update public.profiles

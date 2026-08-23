@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { supabase } from '@/lib/supabase';
-import { GlassCard, Badge, EmptyState, Avatar } from '@/components/ui';
+import { GlassCard, Badge, EmptyState } from '@/components/ui';
 import { getStatusColor, getStatusLabel, formatDate, isOverdue, getDaysUntil } from '@/lib/utils';
-import type { Dear, DearSubmission, Profile } from '@/types';
+import type { Dear, DearSubmission } from '@/types';
 
 interface DearWithSubmission extends Dear {
   submission?: DearSubmission;
@@ -142,7 +142,7 @@ export function StudentDashboard() {
   const layoutClass = theme.layout === 'compact' ? 'gap-3' : theme.layout === 'spacious' ? 'gap-6' : 'gap-4';
 
   return (
-    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+    <div className="dashboard-page p-4 lg:p-8 max-w-7xl mx-auto">
       {/* Welcome header */}
       <div className="mb-8 animate-fade-in flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -158,7 +158,7 @@ export function StudentDashboard() {
       </div>
 
       {/* Stats */}
-      <div className={`grid grid-cols-2 lg:grid-cols-4 ${layoutClass} mb-6`}>
+      <div className={`dashboard-stats grid grid-cols-2 lg:grid-cols-4 ${layoutClass} mb-6`}>
         <GlassCard className="p-4 animate-slide-up">
           <p className="text-sm text-app-muted">Total DEARS</p>
           <p className="text-2xl font-semibold text-app-primary mt-1">{stats.total}</p>
@@ -214,7 +214,7 @@ export function StudentDashboard() {
       </div>
 
       {/* Main content: DEAR cards + sidebar */}
-      <div className={`grid grid-cols-1 lg:grid-cols-3 ${layoutClass}`}>
+      <div className={`dashboard-main grid grid-cols-1 lg:grid-cols-3 ${layoutClass}`}>
         {/* DEAR assignments */}
         <div className="lg:col-span-2">
           {/* Filter tabs */}
@@ -250,7 +250,7 @@ export function StudentDashboard() {
               subtitle="Your assignments will appear in this category."
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="assignment-grid grid grid-cols-1 md:grid-cols-2 gap-4">
               {filteredDears.map((dear, i) => {
                 const status = dear.submission?.status ?? 'not_started';
                 const color = getStatusColor(status);

@@ -28,6 +28,22 @@ const LAYOUTS: { key: ThemeConfig['layout']; label: string; desc: string }[] = [
   { key: 'grid', label: 'Grid', desc: 'Card-based grid view' },
 ];
 
+const FONTS: { key: ThemeConfig['fontFamily']; label: string; family: string }[] = [
+  { key: 'poppins', label: 'Poppins', family: "'Poppins', sans-serif" },
+  { key: 'sfpro', label: 'SF Pro', family: "'SF Pro Display', sans-serif" },
+  { key: 'inter', label: 'Inter', family: "'Inter', sans-serif" },
+  { key: 'roboto', label: 'Roboto', family: "'Roboto', sans-serif" },
+  { key: 'montserrat', label: 'Montserrat', family: "'Montserrat', sans-serif" },
+  { key: 'raleway', label: 'Raleway', family: "'Raleway', sans-serif" },
+  { key: 'nunito', label: 'Nunito', family: "'Nunito', sans-serif" },
+  { key: 'lora', label: 'Lora', family: "'Lora', serif" },
+  { key: 'playfair', label: 'Playfair', family: "'Playfair Display', serif" },
+  { key: 'sourceSans', label: 'Source Sans', family: "'Source Sans 3', sans-serif" },
+  { key: 'dmSans', label: 'DM Sans', family: "'DM Sans', sans-serif" },
+  { key: 'spaceGrotesk', label: 'Space Grotesk', family: "'Space Grotesk', sans-serif" },
+  { key: 'manrope', label: 'Manrope', family: "'Manrope', sans-serif" },
+];
+
 export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
   const { profile, refreshProfile, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -199,12 +215,8 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
 
         <div className="mb-4">
           <label className="text-sm font-medium text-app-secondary mb-2 block">Font Family</label>
-          <div className="flex gap-2">
-            {([
-              { key: 'poppins' as const, label: 'Poppins' },
-              { key: 'sfpro' as const, label: 'SF Pro' },
-              { key: 'inter' as const, label: 'Inter' },
-            ]).map((font) => (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto">
+            {FONTS.map((font) => (
               <button
                 key={font.key}
                 onClick={() => handleThemeChange({ fontFamily: font.key })}
@@ -212,7 +224,7 @@ export function SettingsScreen({ isTeacher }: { isTeacher: boolean }) {
                   theme.fontFamily === font.key ? 'ring-2 ring-[var(--primary-color)] text-[var(--primary-color)] font-medium' : 'text-app-secondary hover:opacity-80'
                 }`}
                 style={{
-                  fontFamily: font.key === 'poppins' ? "'Poppins', sans-serif" : font.key === 'inter' ? "'Inter', sans-serif" : "'SF Pro Display', sans-serif",
+                  fontFamily: font.family,
                 }}
               >
                 {font.label}
