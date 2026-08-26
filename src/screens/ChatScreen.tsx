@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { GlassCard, Avatar, Spinner, EmptyState } from '@/components/ui';
+import { Avatar, Spinner, EmptyState } from '@/components/ui';
 import { formatRelative } from '@/lib/utils';
 import type { Profile, Message } from '@/types';
 
@@ -18,13 +18,17 @@ export function ChatScreen() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [showCall, setShowCall] = useState<'voice' | 'video' | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isTeacher = profile?.role === 'teacher';
 
   useEffect(() => {
     loadContacts();
   }, []);
+
+  const TEACHER_EMAILS = ['gaghzy@gmail.com'];
 
   const loadContacts = async () => {
     if (isTeacher) {
@@ -33,10 +37,12 @@ export function ChatScreen() {
         .select('*')
         .eq('role', 'student')
         .order('first_name');
-      setContacts((data ?? []) as Profile[]);
-      if (data && data.length > 0 && !recipientId) {
-        setSelectedContact(data[0] as Profile);
+      const filtered = (data ?? []).filter((s) => !TEACHER_EMAILS.includes(s.email));
+      setContacts(filtered as Profile[]);
+      if (filtered.length > 0 && !recipientId) {
+        setSelectedContact(filtered[0] as Profile);
       }
+      setLoading(false);
     } else {
       const [{ data: teacherData }, { data: studentData }, { data: permissionData }] = await Promise.all([
         supabase.from('profiles').select('*').eq('role', 'teacher').limit(1),
@@ -48,7 +54,8 @@ export function ChatScreen() {
         if (permission.student_a === profile?.id) allowedIds.add(permission.student_b);
         if (permission.student_b === profile?.id) allowedIds.add(permission.student_a);
       });
-      const data = [...(teacherData ?? []), ...(studentData ?? []).filter((student) => allowedIds.has(student.id))];
+      const filteredStudents = (studentData ?? []).filter((student) => allowedIds.has(student.id) && !TEACHER_EMAILS.includes(student.email));
+      const data = [...(teacherData ?? []), ...filteredStudents];
       setContacts(data as Profile[]);
       if (recipientId) {
         setSelectedContact((data as Profile[]).find((student) => student.id === recipientId) ?? null);
@@ -58,7 +65,6 @@ export function ChatScreen() {
         setSelectedContact(teacherData[0] as Profile);
       }
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -79,14 +85,15 @@ export function ChatScreen() {
         event: '*',
         schema: 'public',
         table: 'messages',
-        filter: `sender_id=eq.${selectedContact.id}`,
-      }, () => loadMessages())
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'messages',
-        filter: `recipient_id=eq.${profile.id}`,
-      }, () => loadMessages())
+      }, (payload) => {
+        const msg = payload.new as Message;
+        if (
+          (msg.sender_id === profile.id && msg.recipient_id === selectedContact.id) ||
+          (msg.sender_id === selectedContact.id && msg.recipient_id === profile.id)
+        ) {
+          loadMessages();
+        }
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -103,7 +110,6 @@ export function ChatScreen() {
 
     setMessages((data ?? []) as Message[]);
 
-    // Mark received messages as read
     const unread = (data ?? []).filter((m) => m.recipient_id === profile.id && !m.read_at);
     if (unread.length > 0) {
       await Promise.all(unread.map((m) =>
@@ -127,6 +133,7 @@ export function ChatScreen() {
     if (data) {
       setMessages((prev) => [...prev, data as Message]);
       setNewMessage('');
+      inputRef.current?.focus();
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
     }
   };
@@ -154,180 +161,235 @@ export function ChatScreen() {
     setMessages((prev) => prev.filter((m) => m.id !== msg.id));
   };
 
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery) return contacts;
+    const q = searchQuery.toLowerCase();
+    return contacts.filter((c) =>
+      `${c.first_name} ${c.last_name} ${c.email}`.toLowerCase().includes(q)
+    );
+  }, [contacts, searchQuery]);
+
+  // Group messages by date
+  const groupedMessages = useMemo(() => {
+    const groups: { date: string; messages: Message[] }[] = [];
+    let currentDate = '';
+
+    messages.forEach((msg) => {
+      const msgDate = new Date(msg.created_at).toLocaleDateString();
+      if (msgDate !== currentDate) {
+        currentDate = msgDate;
+        groups.push({ date: msgDate, messages: [] });
+      }
+      groups[groups.length - 1].messages.push(msg);
+    });
+
+    return groups;
+  }, [messages]);
+
+  // Format time for message bubbles
+  const formatTime = (dateStr: string) => {
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateLabel = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (d.toDateString() === today.toDateString()) return 'Today';
+    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+    return d.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Spinner size={40} /></div>;
   }
 
   return (
-    <div className="chat-screen flex h-[calc(100vh-1rem)] min-h-[520px] flex-col p-3 lg:h-screen lg:flex-row lg:p-4">
-      {/* Contact list (teacher sees students, student sees teacher) */}
-      <div className="w-64 flex-shrink-0 overflow-auto mr-3 hidden lg:block">
-        <GlassCard className="p-2">
-          <p className="text-xs font-medium text-app-muted px-3 py-2">{isTeacher ? 'STUDENTS' : 'TEACHER'}</p>
-          {contacts.length === 0 ? (
-            <p className="text-sm text-app-muted px-3 py-4">{isTeacher ? 'No students yet.' : 'No teacher available.'}</p>
+    <div className="whatsapp-layout">
+      {/* ─── Sidebar ─── */}
+      <div className={`whatsapp-sidebar ${selectedContact ? 'hidden lg:flex' : 'flex'}`}>
+        {/* Sidebar header */}
+        <div className="whatsapp-sidebar-header">
+          <div className="flex items-center gap-3">
+            <Avatar url={profile?.avatar_url} name={`${profile?.first_name} ${profile?.last_name}`} size={40} />
+            <h2 className="text-lg font-semibold text-slate-800">Messages</h2>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="whatsapp-search">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="whatsapp-search-icon"><circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" /></svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={isTeacher ? 'Search students...' : 'Search teachers...'}
+            className="whatsapp-search-input"
+          />
+        </div>
+
+        {/* Contact list */}
+        <div className="whatsapp-contact-list">
+          {filteredContacts.length === 0 ? (
+            <div className="p-4 text-center text-sm text-slate-400">
+              {searchQuery ? 'No results found.' : isTeacher ? 'No students yet.' : 'No contacts available.'}
+            </div>
           ) : (
-            contacts.map((contact) => (
-              <button
-                key={contact.id}
-                onClick={() => { setSelectedContact(contact); navigate(isTeacher ? `/teacher/messages/${contact.id}` : '/messages'); }}
-                className={`w-full flex items-center gap-2 px-3 py-2.5 rounded-xl transition ${
-                  selectedContact?.id === contact.id ? 'glass text-[var(--primary-color)]' : 'hover:bg-white/30 text-app-secondary'
-                }`}
-              >
-                <Avatar url={contact.avatar_url} name={`${contact.first_name} ${contact.last_name}`} size={32} />
-                <span className="text-sm font-medium truncate">{contact.first_name} {contact.last_name}</span>
-              </button>
-            ))
+            filteredContacts.map((contact) => {
+              const isSelected = selectedContact?.id === contact.id;
+              return (
+                <button
+                  key={contact.id}
+                  onClick={() => { setSelectedContact(contact); navigate(isTeacher ? `/teacher/messages/${contact.id}` : '/messages'); }}
+                  className={`whatsapp-contact ${isSelected ? 'whatsapp-contact-active' : ''}`}
+                >
+                  <div className="whatsapp-contact-avatar">
+                    <Avatar url={contact.avatar_url} name={`${contact.first_name} ${contact.last_name}`} size={48} />
+                    <span className="whatsapp-online-dot" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <p className="whatsapp-contact-name">{contact.first_name} {contact.last_name}</p>
+                      <span className="whatsapp-contact-time text-[10px]">
+                        {contact.last_sign_in ? formatRelative(contact.last_sign_in) : ''}
+                      </span>
+                    </div>
+                    <p className="whatsapp-contact-email">{contact.email}</p>
+                  </div>
+                </button>
+              );
+            })
           )}
-        </GlassCard>
+        </div>
       </div>
 
-      <div className="chat-mobile-contacts flex gap-2 overflow-x-auto pb-2 lg:hidden">
-        {contacts.map((contact) => (
-          <button
-            key={contact.id}
-            onClick={() => { setSelectedContact(contact); navigate(isTeacher ? `/teacher/messages/${contact.id}` : '/messages'); }}
-            className={`flex shrink-0 items-center gap-2 rounded-xl px-3 py-2 ${selectedContact?.id === contact.id ? 'glass text-[var(--primary-color)]' : 'glass-input text-app-secondary'}`}
-          >
-            <Avatar url={contact.avatar_url} name={`${contact.first_name} ${contact.last_name}`} size={28} />
-            <span className="max-w-28 truncate text-sm">{contact.username ? `@${contact.username}` : contact.first_name}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Chat area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* ─── Chat Area ─── */}
+      <div className={`whatsapp-chat ${!selectedContact ? 'hidden lg:flex' : 'flex'}`}>
         {selectedContact ? (
           <>
             {/* Chat header */}
-            <GlassCard className="p-3 mb-3 flex items-center justify-between animate-fade-in">
+            <div className="whatsapp-chat-header">
+              <button
+                onClick={() => setSelectedContact(null)}
+                className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-white/40 transition text-slate-600"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+              </button>
               <div className="flex items-center gap-3">
                 <Avatar url={selectedContact.avatar_url} name={`${selectedContact.first_name} ${selectedContact.last_name}`} size={40} />
                 <div>
-                  <p className="font-medium text-slate-700">{selectedContact.first_name} {selectedContact.last_name}</p>
+                  <p className="font-semibold text-slate-800">{selectedContact.first_name} {selectedContact.last_name}</p>
                   <p className="text-xs text-slate-400">{selectedContact.email}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCall('voice')}
-                  className="p-2.5 rounded-xl glass-input hover:bg-white/60 transition text-slate-600"
-                  title="Voice call"
-                >
+              <div className="flex gap-1">
+                <button onClick={() => setShowCall('voice')} className="whatsapp-header-btn" title="Voice call">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
                 </button>
-                <button
-                  onClick={() => setShowCall('video')}
-                  className="p-2.5 rounded-xl glass-input hover:bg-white/60 transition text-slate-600"
-                  title="Video call"
-                >
+                <button onClick={() => setShowCall('video')} className="whatsapp-header-btn" title="Video call">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>
                 </button>
               </div>
-            </GlassCard>
+            </div>
 
             {/* Messages */}
-            <div className="chat-messages flex-1 overflow-auto glass rounded-xl p-4 space-y-2 mb-3 bg-white/40">
+            <div className="whatsapp-messages">
               {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-slate-400">No messages yet. Say hello!</p>
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <Avatar url={selectedContact.avatar_url} name={`${selectedContact.first_name} ${selectedContact.last_name}`} size={80} />
+                  <p className="text-slate-400 text-sm">No messages yet. Say hello!</p>
                 </div>
               ) : (
-                messages.map((msg) => {
-                  const isOwn = msg.sender_id === profile?.id;
-                  return (
-                    <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} group`}>
-                      <div className={`max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
-                        {editingId === msg.id ? (
-                          <div className="glass-input rounded-2xl p-3">
-                            <textarea
-                              value={editText}
-                              onChange={(e) => setEditText(e.target.value)}
-                              className="w-full bg-transparent text-slate-800 resize-none text-sm"
-                              rows={2}
-                              autoFocus
-                            />
-                            <div className="flex gap-2 mt-2">
-                              <button onClick={handleSaveEdit} className="text-xs text-green-500 font-medium">Save</button>
-                              <button onClick={() => setEditingId(null)} className="text-xs text-slate-400">Cancel</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div
-                            className={`rounded-2xl px-4 py-2.5 ${
-                              isOwn ? 'gradient-bg text-white' : 'glass text-slate-800'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap break-words">{msg.body}</p>
-                            <div className={`flex items-center gap-2 mt-1 ${isOwn ? 'text-white/60' : 'text-slate-400'}`}>
-                              <span className="text-xs">{formatRelative(msg.created_at)}</span>
-                              {msg.edited && <span className="text-xs italic">edited</span>}
-                              {msg.read_at && isOwn && (
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        {isOwn && editingId !== msg.id && (
-                          <div className="opacity-0 group-hover:opacity-100 transition flex gap-1 mt-1 justify-end">
-                            <button onClick={() => handleEdit(msg)} className="text-xs text-slate-400 hover:text-slate-600">Edit</button>
-                            <span className="text-slate-300">·</span>
-                            <button onClick={() => handleDelete(msg)} className="text-xs text-slate-400 hover:text-red-500">Delete</button>
-                          </div>
-                        )}
-                      </div>
+                groupedMessages.map((group) => (
+                  <div key={group.date}>
+                    <div className="whatsapp-date-label">
+                      <span>{formatDateLabel(group.date)}</span>
                     </div>
-                  );
-                })
+                    {group.messages.map((msg) => {
+                      const isOwn = msg.sender_id === profile?.id;
+                      return (
+                        <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'} mb-1 group`}>
+                          <div className={`whatsapp-bubble-wrapper ${isOwn ? 'whatsapp-bubble-own' : 'whatsapp-bubble-other'}`}>
+                            {editingId === msg.id ? (
+                              <div className="whatsapp-edit-box">
+                                <input
+                                  value={editText}
+                                  onChange={(e) => setEditText(e.target.value)}
+                                  className="whatsapp-edit-input"
+                                  autoFocus
+                                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(); if (e.key === 'Escape') setEditingId(null); }}
+                                />
+                                <div className="flex gap-2 mt-1">
+                                  <button onClick={handleSaveEdit} className="text-xs text-green-600 font-medium">Save</button>
+                                  <button onClick={() => setEditingId(null)} className="text-xs text-slate-400">Cancel</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className="whatsapp-bubble-text">{msg.body}</p>
+                                <div className={`whatsapp-bubble-meta ${isOwn ? 'whatsapp-bubble-meta-own' : ''}`}>
+                                  <span>{formatTime(msg.created_at)}</span>
+                                  {msg.edited && <span className="italic">edited</span>}
+                                  {msg.read_at && isOwn && (
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-blue-400"><polyline points="20 6 9 17 4 12" /></svg>
+                                  )}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                          {isOwn && editingId !== msg.id && (
+                            <div className="whatsapp-msg-actions">
+                              <button onClick={() => handleEdit(msg)} className="whatsapp-msg-action">Edit</button>
+                              <button onClick={() => handleDelete(msg)} className="whatsapp-msg-action whatsapp-msg-action-delete">Del</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))
               )}
               <div ref={messagesEndRef} />
             </div>
 
             {/* Input */}
-            <form onSubmit={handleSend} className="flex gap-2 shrink-0">
+            <form onSubmit={handleSend} className="whatsapp-input-bar">
               <input
+                ref={inputRef}
                 type="text"
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="glass-input flex-1 rounded-xl px-4 py-3 text-slate-800"
+                className="whatsapp-input"
                 placeholder="Type a message..."
               />
-              <button type="submit" disabled={!newMessage.trim()} className="btn-primary px-5">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+              <button type="submit" disabled={!newMessage.trim()} className="whatsapp-send-btn">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
               </button>
             </form>
           </>
         ) : (
-          <EmptyState
-            icon={<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>}
-            title={isTeacher ? "Select a student to chat" : "No teacher available"}
-            subtitle={isTeacher ? "Choose someone from the list to start messaging." : "Your teacher hasn't signed up yet."}
-          />
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon={<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>}
+              title={isTeacher ? 'Select a student' : 'No conversations yet'}
+              subtitle={isTeacher ? 'Choose someone from the sidebar to start chatting.' : 'Your teacher will reach out soon.'}
+            />
+          </div>
         )}
       </div>
 
       {/* Call overlay */}
       {showCall && selectedContact && (
-        <CallOverlay
-          type={showCall}
-          contact={selectedContact}
-          onClose={() => setShowCall(null)}
-        />
+        <CallOverlay type={showCall} contact={selectedContact} onClose={() => setShowCall(null)} />
       )}
     </div>
   );
 }
 
-function CallOverlay({
-  type,
-  contact,
-  onClose,
-}: {
-  type: 'voice' | 'video';
-  contact: Profile;
-  onClose: () => void;
-}) {
+function CallOverlay({ type, contact, onClose }: { type: 'voice' | 'video'; contact: Profile; onClose: () => void }) {
   const [muted, setMuted] = useState(false);
   const [videoOff, setVideoOff] = useState(false);
   const [duration, setDuration] = useState(0);
@@ -357,33 +419,19 @@ function CallOverlay({
             )}
           </div>
           <h2 className="text-xl font-semibold text-white">{contact.first_name} {contact.last_name}</h2>
-          <p className="text-sm text-slate-400 mt-1">
-            {type === 'video' ? 'Video' : 'Voice'} call · {formatDuration(duration)}
-          </p>
+          <p className="text-sm text-slate-400 mt-1">{type === 'video' ? 'Video' : 'Voice'} call · {formatDuration(duration)}</p>
           <p className="text-xs text-slate-500 mt-2">Connecting...</p>
         </div>
-
         <div className="flex items-center justify-center gap-4">
-          <button
-            onClick={() => setMuted(!muted)}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition ${
-              muted ? 'bg-white text-slate-800' : 'glass text-white'
-            }`}
-          >
+          <button onClick={() => setMuted(!muted)} className={`w-14 h-14 rounded-full flex items-center justify-center transition ${muted ? 'bg-white text-slate-800' : 'glass text-white'}`}>
             {muted ? (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="1" y1="1" x2="23" y2="23" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" /><path d="M17 16.95a5 5 0 0 1-8 0V12" /><path d="M12 19v4" /></svg>
             ) : (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="23" /></svg>
             )}
           </button>
-
           {type === 'video' && (
-            <button
-              onClick={() => setVideoOff(!videoOff)}
-              className={`w-14 h-14 rounded-full flex items-center justify-center transition ${
-                videoOff ? 'bg-white text-slate-800' : 'glass text-white'
-              }`}
-            >
+            <button onClick={() => setVideoOff(!videoOff)} className={`w-14 h-14 rounded-full flex items-center justify-center transition ${videoOff ? 'bg-white text-slate-800' : 'glass text-white'}`}>
               {videoOff ? (
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
               ) : (
@@ -391,11 +439,7 @@ function CallOverlay({
               )}
             </button>
           )}
-
-          <button
-            onClick={onClose}
-            className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition"
-          >
+          <button onClick={onClose} className="w-14 h-14 rounded-full bg-red-500 flex items-center justify-center text-white hover:bg-red-600 transition">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" transform="rotate(135)"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
           </button>
         </div>

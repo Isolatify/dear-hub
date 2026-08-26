@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/context/ToastContext';
 import { GlassCard, EmptyState, Badge, Spinner } from '@/components/ui';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { formatDate, isOverdue } from '@/lib/utils';
 import type { Dear } from '@/types';
 
 export function TeacherDearsScreen() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [dears, setDears] = useState<Dear[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Dear | null>(null);
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteDear, setConfirmDeleteDear] = useState<Dear | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -33,17 +37,26 @@ export function TeacherDearsScreen() {
       status: String(form.get('status') ?? 'active'),
       updated_at: new Date().toISOString(),
     }).eq('id', editing.id).select('*').single();
-    if (error) window.alert(error.message);
+    if (error) toast(error.message, 'error');
     if (data) setDears((current) => current.map((dear) => dear.id === data.id ? data as Dear : dear));
     setSaving(false);
     setEditing(null);
   };
 
   const deleteDear = async (dear: Dear) => {
-    if (!window.confirm(`Delete ${dear.week} - ${dear.term}? This also removes its submissions.`)) return;
+    setConfirmDeleteDear(dear);
+  };
+
+  const confirmDeleteDearFn = async () => {
+    if (!confirmDeleteDear) return;
+    const dear = confirmDeleteDear;
+    setConfirmDeleteDear(null);
     const { error } = await supabase.from('dears').delete().eq('id', dear.id);
-    if (error) window.alert(error.message);
-    else setDears((current) => current.filter((item) => item.id !== dear.id));
+    if (error) toast(error.message, 'error');
+    else {
+      setDears((current) => current.filter((item) => item.id !== dear.id));
+      toast('DEAR deleted', 'success');
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Spinner size={40} /></div>;
@@ -94,6 +107,15 @@ export function TeacherDearsScreen() {
           </form>
         </div>
       )}
+      <ConfirmModal
+        open={!!confirmDeleteDear}
+        title="Delete DEAR"
+        message={`Delete ${confirmDeleteDear?.week} - ${confirmDeleteDear?.term}? This also removes its submissions.`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDeleteDearFn}
+        onCancel={() => setConfirmDeleteDear(null)}
+      />
     </div>
   );
 }

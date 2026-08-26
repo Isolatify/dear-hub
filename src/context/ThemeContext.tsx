@@ -53,7 +53,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         }
         setLoading(false);
       });
-  }, [user]);
+  }, [user?.id]);
 
   useEffect(() => {
     const root = document.documentElement;

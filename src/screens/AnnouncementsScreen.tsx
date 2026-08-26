@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/context/ToastContext';
 import { GlassCard, Avatar, Spinner, EmptyState, Badge } from '@/components/ui';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { formatRelative } from '@/lib/utils';
 import type { Announcement, AnnouncementReply, Profile } from '@/types';
 
 export function AnnouncementsScreen({ isTeacher }: { isTeacher: boolean }) {
   const { profile } = useAuth();
+  const { toast } = useToast();
   const [announcements, setAnnouncements] = useState<(Announcement & { replies: (AnnouncementReply & { student: Profile })[] })[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -16,6 +19,7 @@ export function AnnouncementsScreen({ isTeacher }: { isTeacher: boolean }) {
   const [replyText, setReplyText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState({ title: '', body: '' });
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -75,6 +79,7 @@ export function AnnouncementsScreen({ isTeacher }: { isTeacher: boolean }) {
     setTitle('');
     setBody('');
     setShowForm(false);
+    toast('Announcement posted', 'success');
     load();
   };
 
@@ -91,12 +96,20 @@ export function AnnouncementsScreen({ isTeacher }: { isTeacher: boolean }) {
       updated_at: new Date().toISOString(),
     }).eq('id', editingId);
     setEditingId(null);
+    toast('Announcement updated', 'success');
     load();
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Delete this announcement? All replies will be removed too.')) return;
+    setConfirmDeleteId(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
+    const id = confirmDeleteId;
+    setConfirmDeleteId(null);
     await supabase.from('announcements').delete().eq('id', id);
+    toast('Announcement deleted', 'success');
     load();
   };
 
@@ -111,6 +124,7 @@ export function AnnouncementsScreen({ isTeacher }: { isTeacher: boolean }) {
 
     setReplyText('');
     setReplyingTo(null);
+    toast('Reply posted', 'success');
     load();
   };
 
@@ -261,6 +275,16 @@ export function AnnouncementsScreen({ isTeacher }: { isTeacher: boolean }) {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={!!confirmDeleteId}
+        title="Delete Announcement"
+        message="Delete this announcement? All replies will be removed too."
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setConfirmDeleteId(null)}
+      />
     </div>
   );
 }

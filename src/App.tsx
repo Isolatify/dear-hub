@@ -5,6 +5,7 @@ import { ToastProvider } from '@/context/ToastContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { StudentNav } from '@/components/StudentNav';
 import { TeacherNav } from '@/components/TeacherNav';
+import { UpdatePopup } from '@/components/UpdatePopup';
 import { Spinner } from '@/components/ui';
 
 import { AuthScreen } from '@/screens/AuthScreen';
@@ -27,6 +28,9 @@ import { TeacherDearsScreen } from '@/screens/TeacherDearsScreen';
 import { TeacherSubmissionsScreen } from '@/screens/TeacherSubmissionsScreen';
 import { TeacherAnalyticsScreen } from '@/screens/TeacherAnalyticsScreen';
 import { FeedbackScreen } from '@/screens/FeedbackScreen';
+import { MyDearsPage } from '@/screens/MyDearsPage';
+import { ProgressPage } from '@/screens/ProgressPage';
+import { BookmarksPage } from '@/screens/BookmarksPage';
 
 function StudentLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -46,14 +50,8 @@ function TeacherLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
-function FeedbackRoute() {
-  const { profile } = useAuth();
-  const navigation = profile?.role === 'teacher' ? <TeacherNav /> : <StudentNav />;
-  return <div className="flex min-h-screen">{navigation}<main className="flex-1 min-w-0"><FeedbackScreen /></main></div>;
-}
-
 function TeacherRoute({ children }: { children: React.ReactNode }) {
-  const { profile, loading } = useAuth();
+  const { profile, isAdmin, loading } = useAuth();
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Spinner size={40} /></div>;
@@ -63,7 +61,7 @@ function TeacherRoute({ children }: { children: React.ReactNode }) {
     return <TeacherLinkScreen />;
   }
 
-  if (profile.role !== 'teacher') {
+  if (profile.role !== 'teacher' && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -71,14 +69,10 @@ function TeacherRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return <div className="flex items-center justify-center min-h-screen"><Spinner size={40} /></div>;
-  }
-
   return (
-    <Routes>
+    <>
+      <UpdatePopup />
+      <Routes>
       {/* Teacher sign-in (email-locked to gaghzy@gmail.com) */}
       <Route path="/teacher" element={<TeacherLinkScreen />} />
 
@@ -113,7 +107,16 @@ function AppRoutes() {
       <Route path="/settings" element={
         <ProtectedRoute><StudentLayout><SettingsScreen isTeacher={false} /></StudentLayout></ProtectedRoute>
       } />
-      <Route path="/feedback" element={<ProtectedRoute><FeedbackRoute /></ProtectedRoute>} />
+      <Route path="/my-dears" element={
+        <ProtectedRoute><StudentLayout><MyDearsPage /></StudentLayout></ProtectedRoute>
+      } />
+      <Route path="/progress" element={
+        <ProtectedRoute><StudentLayout><ProgressPage /></StudentLayout></ProtectedRoute>
+      } />
+      <Route path="/bookmarks" element={
+        <ProtectedRoute><StudentLayout><BookmarksPage /></StudentLayout></ProtectedRoute>
+      } />
+      <Route path="/feedback" element={<FeedbackScreen />} />
 
       {/* Auth route */}
       <Route path="/auth" element={<AuthScreen />} />
@@ -124,11 +127,12 @@ function AppRoutes() {
       <Route path="/" element={<LandingPage />} />
       <Route path="*" element={<NavigateToHome />} />
     </Routes>
+    </>
   );
 }
 
 function NavigateToHome() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, isAdmin, loading } = useAuth();
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Spinner size={40} /></div>;
@@ -142,7 +146,7 @@ function NavigateToHome() {
     return <OnboardingScreen />;
   }
 
-  if (profile?.role === 'teacher') {
+  if (profile?.role === 'teacher' || isAdmin) {
     return <Navigate to="/teacher/dashboard" replace />;
   }
 

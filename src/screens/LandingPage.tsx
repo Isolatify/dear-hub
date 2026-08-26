@@ -162,6 +162,53 @@ const FEATURES = [
   { icon: SunMoon, title: 'Light & Dark Mode', desc: 'Switch between light and dark mode anytime. The whole app adapts instantly.' },
 ];
 
+const UPDATE_LOG = [
+  { version: '1.1.0', date: 'Aug 2026', tag: 'Latest', changes: [
+    'Mega Student Dashboard with 14 toggleable widgets',
+    'Mega Teacher Dashboard with 8 toggleable widgets & CSV export',
+    'WhatsApp-style messaging with sidebar, bubbles & call overlay',
+    'Sapling AI Detection API integration with fallback',
+    'GradeScreen remake: split pane, auto AI check, progress bar',
+    'TeacherSubmissionsScreen: DEAR auto-select, status filters',
+    'ManageStudents: search, expandable student cards with stats',
+    'Browser alerts replaced with glass ConfirmModal & Toast',
+    'PDF viewer rotation bug fix',
+    'Submission locking: teacher can\'t re-grade approved, student can\'t edit after submit',
+    'Teacher account excluded from student lists',
+    'Mobile responsiveness across all screens (768px, 480px, 360px)',
+    'App no longer restarts on browser tab switch',
+  ]},
+  { version: '1.0.0', date: 'Aug 2026', tag: '', changes: [
+    'Samsung-style Settings page',
+    'Teacher Analytics dashboard with charts',
+    'Image crop tool for profile pictures',
+    'Onboarding animations & state persistence',
+    'Admin role support',
+    'Update log & feedback in settings',
+  ]},
+  { version: '0.9.0', date: 'Aug 2026', tag: '', changes: [
+    'Feedback board with voting and comments',
+    'Real-time student activity monitoring',
+    'AI writing checker integration',
+    '12 color themes with custom color picker',
+    'Light & dark mode with glass morphism',
+    '13 font family options',
+  ]},
+  { version: '0.8.0', date: 'Aug 2026', tag: '', changes: [
+    'DEAR workspace with split-screen PDF reader',
+    'Word processor with rich text editing',
+    'Teacher grading interface',
+    'Student submission system',
+    'Announcements & messaging',
+  ]},
+  { version: '0.1.0', date: 'Aug 2026', tag: 'Alpha', changes: [
+    'Initial release',
+    'Authentication & onboarding flow',
+    'Student & teacher dashboards',
+    'Supabase backend integration',
+  ]},
+];
+
 const DIGITAL_VS_PAPER = [
   { digital: 'Auto-saves every keystroke — never lose work', paper: 'Lost papers, forgotten notebooks, spilled water' },
   { digital: 'Read PDF + write summary in one split screen', paper: 'Print PDFs, write in a separate notebook, switch back and forth' },
@@ -183,6 +230,7 @@ export function LandingPage() {
   const [carouselIndex, setCarouselIndex] = useState(0);
   const [isolatifyPopup, setIsolatifyPopup] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [showUpdateLog, setShowUpdateLog] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   const isLoggedIn = !!session && !!profile;
@@ -562,6 +610,12 @@ export function LandingPage() {
           <p className="text-sm text-app-muted">
             &copy; {new Date().getFullYear()} | The Isolatify Brand | All rights reserved
           </p>
+          <button
+            onClick={() => setShowUpdateLog(true)}
+            className="text-xs text-app-muted hover:text-app-primary transition underline"
+          >
+            v1.1.0 · Update Log
+          </button>
         </div>
       </footer>
 
@@ -586,6 +640,51 @@ export function LandingPage() {
             <p className="text-sm text-app-secondary leading-relaxed">
               The Isolatify Brand is a mini-company that specializes in games (Isolation Games), apps (Isolatify Apps), animations (Isolation Animations) & design (Isolation Designs). This company is founded and ran by @Isolatify & started in 2024.
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Update Log popup */}
+      {showUpdateLog && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={() => setShowUpdateLog(false)}
+        >
+          <div
+            className="glass-strong rounded-3xl p-8 max-w-lg w-full animate-scale-in max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-bold gradient-text">Update Log</h3>
+              <button onClick={() => setShowUpdateLog(false)} className="text-app-muted hover:text-app-primary transition">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1">
+              {UPDATE_LOG.map((release) => (
+                <div key={release.version} className="border-b border-slate-200/30 dark:border-slate-700/30 pb-4 last:border-0 last:pb-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-semibold text-app-primary">v{release.version}</span>
+                    {release.tag && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full gradient-bg text-white">
+                        {release.tag}
+                      </span>
+                    )}
+                    <span className="text-xs text-app-muted ml-auto">{release.date}</span>
+                  </div>
+                  <ul className="space-y-1">
+                    {release.changes.map((change, i) => (
+                      <li key={i} className="text-sm text-app-secondary flex items-start gap-2">
+                        <span className="text-[var(--primary-color)] mt-1 shrink-0">•</span>
+                        {change}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

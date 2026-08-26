@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/context/ToastContext';
 import { GlassCard, EmptyState, Avatar, Spinner } from '@/components/ui';
+import { ConfirmModal } from '@/components/ConfirmModal';
 import { formatRelative } from '@/lib/utils';
 import type { Profile, ActivityLog, DearSubmission, Dear } from '@/types';
 
@@ -11,6 +13,7 @@ interface StudentWithActivity extends Profile {
 }
 
 export function ManageStudents() {
+  const { toast } = useToast();
   const [students, setStudents] = useState<StudentWithActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -24,6 +27,9 @@ export function ManageStudents() {
   const [permissions, setPermissions] = useState<Array<{ student_a: string; student_b: string; allowed: boolean }>>([]);
   const [permissionA, setPermissionA] = useState('');
   const [permissionB, setPermissionB] = useState('');
+  const [confirmDeleteStudent, setConfirmDeleteStudent] = useState<Profile | null>(null);
+  const [search, setSearch] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -42,7 +48,12 @@ export function ManageStudents() {
       .eq('role', 'student')
       .order('first_name');
 
-    if (!studentData) { setLoading(false); return; }
+    // Exclude teacher accounts from student list
+    const filteredStudents = (studentData ?? []).filter(
+      (s) => s.email !== 'gaghzy@gmail.com'
+    );
+
+    if (filteredStudents.length === 0 && (!studentData || studentData.length === 0)) { setLoading(false); return; }
 
     const { data: logData } = await supabase
       .from('activity_logs')
@@ -74,7 +85,7 @@ export function ManageStudents() {
       subMap.set(s.student_id, arr);
     });
 
-    const combined = studentData.map((s) => ({
+    const combined = filteredStudents.map((s) => ({
       ...(s as Profile),
       logs: logMap.get(s.id) ?? [],
       submissions: subMap.get(s.id) ?? [],
@@ -111,14 +122,20 @@ export function ManageStudents() {
       .update({ first_name: editName.first, last_name: editName.last, updated_at: new Date().toISOString() })
       .eq('id', id);
     setEditingId(null);
+    toast('Student updated', 'success');
     load();
   };
 
   const handleDelete = async (student: Profile) => {
-    if (!confirm(`Remove ${student.first_name} ${student.last_name}? This will delete their account and all data.`)) return;
+    setConfirmDeleteStudent(student);
+  };
 
-    // Delete profile and all related data (cascades)
+  const confirmDeleteStudentFn = async () => {
+    if (!confirmDeleteStudent) return;
+    const student = confirmDeleteStudent;
+    setConfirmDeleteStudent(null);
     await supabase.from('profiles').delete().eq('id', student.id);
+    toast(`${student.first_name} ${student.last_name} removed`, 'success');
     load();
   };
 
@@ -150,12 +167,17 @@ export function ManageStudents() {
 
     setAddingStudent(false);
     setNewEmail(''); setNewPassword(''); setNewFirst(''); setNewLast('');
+    toast('Student account created', 'success');
     load();
   };
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><Spinner size={40} /></div>;
   }
+
+  const filtered = students.filter((s) =>
+    `${s.first_name} ${s.last_name} ${s.email}`.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="p-4 lg:p-8 max-w-6xl mx-auto">
@@ -188,8 +210,8 @@ export function ManageStudents() {
       )}
 
       <GlassCard className="p-6 mb-6">
-        <h2 className="font-semibold text-app-primary mb-1">Student chat permissions</h2>
-        <p className="text-sm text-app-muted mb-4">Allow or block student-to-student conversations. Teacher messages remain separate.</p>
+        <h2 className="font-semibold text-[var(--primary-color)] mb-1">Student chat permissions</h2>
+        <p className="text-sm text-slate-500 mb-4">Allow or block student-to-student conversations. Teacher messages remain separate.</p>
         <div className="flex flex-col md:flex-row gap-3">
           <select value={permissionA} onChange={(e) => setPermissionA(e.target.value)} className="glass-input rounded-xl px-3 py-2.5 flex-1">
             <option value="">Choose first student</option>
@@ -210,15 +232,25 @@ export function ManageStudents() {
         </div>
       </GlassCard>
 
-      {students.length === 0 ? (
+      <div className="mb-4">
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search students by name or email..."
+          className="glass-input w-full rounded-xl px-4 py-3 text-slate-800"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
         <EmptyState
           icon={<svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>}
-          title="No students yet"
-          subtitle="Add your first student to get started."
+          title="No students found"
+          subtitle={search ? 'Try a different search term.' : 'Add your first student to get started.'}
         />
       ) : (
         <div className="space-y-3">
-          {students.map((student) => (
+          {filtered.map((student) => (
             <GlassCard key={student.id} className="p-4 animate-slide-up">
               <div className="flex items-center gap-4">
                 <Avatar url={student.avatar_url} name={`${student.first_name} ${student.last_name}`} size={48} />
@@ -254,6 +286,9 @@ export function ManageStudents() {
                   </div>
                 ) : (
                   <div className="flex gap-1">
+                    <button onClick={() => setExpandedId(expandedId === student.id ? null : student.id)} className="p-2 rounded-lg hover:bg-white/40 transition text-slate-500" title="Details">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points={expandedId === student.id ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} /></svg>
+                    </button>
                     <button onClick={() => handleEdit(student)} className="p-2 rounded-lg hover:bg-white/40 transition text-slate-500" title="Edit">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                     </button>
@@ -264,7 +299,26 @@ export function ManageStudents() {
                 )}
               </div>
 
-              {student.logs.length > 0 && (
+              {expandedId === student.id && (
+                <div className="mt-3 pt-3 border-t border-slate-200/50 space-y-3">
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div className="glass-input rounded-xl p-3">
+                      <p className="text-xl font-semibold text-slate-700">{student.submissions.length}</p>
+                      <p className="text-xs text-slate-400">Total DEARs</p>
+                    </div>
+                    <div className="glass-input rounded-xl p-3">
+                      <p className="text-xl font-semibold text-green-500">{student.submissions.filter((s) => s.status === 'approved').length}</p>
+                      <p className="text-xs text-slate-400">Approved</p>
+                    </div>
+                    <div className="glass-input rounded-xl p-3">
+                      <p className="text-xl font-semibold text-red-500">{student.submissions.filter((s) => s.status === 'failed').length}</p>
+                      <p className="text-xs text-slate-400">Failed</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {student.logs.length > 0 && expandedId === student.id && (
                 <div className="mt-3 pt-3 border-t border-slate-200/50">
                   <p className="text-xs text-slate-400 mb-2">RECENT ACTIVITY</p>
                   <div className="space-y-1">
@@ -282,6 +336,16 @@ export function ManageStudents() {
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={!!confirmDeleteStudent}
+        title="Remove Student"
+        message={`Remove ${confirmDeleteStudent?.first_name} ${confirmDeleteStudent?.last_name}? This will delete their account and all data.`}
+        confirmLabel="Remove"
+        danger
+        onConfirm={confirmDeleteStudentFn}
+        onCancel={() => setConfirmDeleteStudent(null)}
+      />
     </div>
   );
 }

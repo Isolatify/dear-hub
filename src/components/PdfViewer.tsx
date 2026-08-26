@@ -165,7 +165,7 @@ export function PdfViewer({ url }: PdfViewerProps) {
 
       {/* PDF content */}
       <div className="flex-1 overflow-auto glass rounded-xl p-4">
-        <div ref={containerRef} style={{ transform: `rotate(${rotation}deg)` }} />
+        <div ref={containerRef} />
       </div>
     </div>
   );

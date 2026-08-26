@@ -9,12 +9,15 @@ import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/types';
 
+const ADMIN_EMAILS = ['abdul.mohammad5504@gmail.com'];
+
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
   profile: Profile | null;
   loading: boolean;
   needsOnboarding: boolean;
+  isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signUp: (
     email: string,
@@ -40,6 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
+
+  const isAdmin = !!user && ADMIN_EMAILS.includes(user.email ?? '');
 
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
@@ -68,25 +74,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(data.session);
       setUser(data.session?.user ?? null);
       if (data.session?.user) {
-        fetchProfile(data.session.user.id).finally(() => setLoading(false));
+        fetchProfile(data.session.user.id).finally(() => {
+          setLoading(false);
+          setInitialLoadDone(true);
+        });
       } else {
         setLoading(false);
+        setInitialLoadDone(true);
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
+
+      // Only react to actual sign-in/sign-out events, NOT token refreshes
+      // and NOT INITIAL_SESSION if we've already loaded once
+      if (event === 'SIGNED_IN' && session?.user) {
         setLoading(true);
         fetchProfile(session.user.id).finally(() => setLoading(false));
-      } else {
+      } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         setNeedsOnboarding(false);
         setLoading(false);
       }
+      // Ignore INITIAL_SESSION (already handled by getSession above)
+      // Ignore TOKEN_REFRESHED (session still valid)
     });
 
     return () => subscription.unsubscribe();
@@ -170,6 +185,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         profile,
         loading,
         needsOnboarding,
+        isAdmin,
         signIn,
         signUp,
         resendConfirmation,
