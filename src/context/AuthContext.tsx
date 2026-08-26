@@ -134,8 +134,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signInWithGoogle = async () => {
     const redirectTo = window.location.hostname === 'localhost'
-      ? `${window.location.origin}/onboarding`
-      : 'https://dear-hub.vercel.app/onboarding';
+      ? `${window.location.origin}/dashboard`
+      : 'https://dear-hub.vercel.app/dashboard';
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
